@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Flame, Plus, Target, Package, CheckCircle2, Gauge } from "lucide-react";
+import { Flame, Plus, Target, Package, CheckCircle2, Gauge, Pencil, Check, X } from "lucide-react";
 
 const BRANDS = [
   { key: "SCTM", label: "SCTM" },
@@ -59,6 +59,8 @@ export default function App() {
   const [objectifDraft, setObjectifDraft] = useState(String(objectif));
   const [inputs, setInputs] = useState({});
   const [confirmed, setConfirmed] = useState({});
+  const [editing, setEditing] = useState({});
+  const [editInputs, setEditInputs] = useState({});
 
   useEffect(() => {
     try {
@@ -72,14 +74,38 @@ export default function App() {
     } catch (e) {}
   }, [objectif]);
 
+  const flashConfirmed = (key) => {
+    setConfirmed((prev) => ({ ...prev, [key]: true }));
+    setTimeout(() => setConfirmed((prev) => ({ ...prev, [key]: false })), 1400);
+  };
+
   const handleAdd = (key) => {
     const raw = inputs[key];
     const amount = parseInt(raw, 10);
     if (!amount || amount <= 0) return;
     setStock((prev) => ({ ...prev, [key]: (prev[key] || 0) + amount }));
     setInputs((prev) => ({ ...prev, [key]: "" }));
-    setConfirmed((prev) => ({ ...prev, [key]: true }));
-    setTimeout(() => setConfirmed((prev) => ({ ...prev, [key]: false })), 1400);
+    flashConfirmed(key);
+  };
+
+  const startEdit = (key) => {
+    setEditInputs((prev) => ({ ...prev, [key]: String(stock[key] || 0) }));
+    setEditing((prev) => ({ ...prev, [key]: true }));
+  };
+
+  const cancelEdit = (key) => {
+    setEditing((prev) => ({ ...prev, [key]: false }));
+    setEditInputs((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const handleSet = (key) => {
+    const raw = editInputs[key];
+    const value = parseInt(raw, 10);
+    if (raw === "" || isNaN(value) || value < 0) return;
+    setStock((prev) => ({ ...prev, [key]: value }));
+    setEditing((prev) => ({ ...prev, [key]: false }));
+    setEditInputs((prev) => ({ ...prev, [key]: "" }));
+    flashConfirmed(key);
   };
 
   const handleObjectifSave = () => {
@@ -183,6 +209,35 @@ export default function App() {
       .gaz-btn:hover { filter: brightness(1.08); }
       .gaz-btn:active { transform: scale(0.96); }
       .gaz-btn:focus-visible { outline: 2px solid ${COLORS.flame}; outline-offset: 2px; }
+
+      .gaz-icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        padding: 0;
+      }
+
+      .gaz-edit-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid ${COLORS.border};
+        color: ${COLORS.muted};
+      }
+      .gaz-edit-btn:hover {
+        color: ${COLORS.text};
+        border-color: #3A4250;
+      }
 
       .gaz-progress-track {
         width: 100%; height: 12px; border-radius: 999px;
@@ -317,37 +372,90 @@ export default function App() {
                 className="gaz-card"
                 style={{ borderLeft: `3px solid ${accent}` }}
               >
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2" style={{ gap: 8 }}>
                   <h3 className="gaz-heading" style={{ color: COLORS.text, fontSize: "0.95rem" }}>{b.label}</h3>
-                  {confirmed[b.key] && <CheckCircle2 size={15} color={accent} />}
+                  <div className="flex items-center" style={{ gap: 6 }}>
+                    {confirmed[b.key] && <CheckCircle2 size={15} color={accent} />}
+                    {!editing[b.key] && (
+                      <button
+                        onClick={() => startEdit(b.key)}
+                        className="gaz-btn gaz-edit-btn"
+                        aria-label={`Modifier le stock de ${b.label}`}
+                        title="Modifier le stock"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="gaz-heading gaz-num gaz-card-stock mb-3" style={{ color: accent }}>
-                  {stock[b.key] || 0}
-                  <span style={{ fontFamily: "Inter", fontSize: "0.7rem", color: COLORS.muted, marginLeft: 6 }}>
-                    en stock
-                  </span>
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    inputMode="numeric"
-                    placeholder="Quantité"
-                    className="gaz-input"
-                    style={{ padding: "7px 10px", fontSize: "0.85rem", width: "100%", minWidth: 0 }}
-                    value={inputs[b.key] || ""}
-                    onChange={(e) => setInputs((prev) => ({ ...prev, [b.key]: e.target.value }))}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAdd(b.key); }}
-                  />
-                  <button
-                    onClick={() => handleAdd(b.key)}
-                    className="gaz-btn flex items-center justify-center flex-shrink-0"
-                    style={{ background: accent, color: "#14171C", borderRadius: 10, width: 36, height: 36 }}
-                    aria-label={`Ajouter des bouteilles ${b.label}`}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
+
+                {editing[b.key] ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      autoFocus
+                      className="gaz-input gaz-num"
+                      style={{ padding: "6px 10px", fontSize: "1.15rem", fontWeight: 600, width: "100%", minWidth: 0, color: accent }}
+                      value={editInputs[b.key] ?? ""}
+                      onChange={(e) => setEditInputs((prev) => ({ ...prev, [b.key]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSet(b.key);
+                        if (e.key === "Escape") cancelEdit(b.key);
+                      }}
+                      aria-label={`Nouvelle quantité en stock pour ${b.label}`}
+                    />
+                    <button
+                      onClick={() => handleSet(b.key)}
+                      className="gaz-btn gaz-icon-btn"
+                      style={{ background: accent, color: "#14171C" }}
+                      aria-label={`Enregistrer le stock de ${b.label}`}
+                      title="Enregistrer (Entrée)"
+                    >
+                      <Check size={16} />
+                    </button>
+                    <button
+                      onClick={() => cancelEdit(b.key)}
+                      className="gaz-btn gaz-icon-btn"
+                      style={{ background: COLORS.bgAlt, color: COLORS.muted, border: `1px solid ${COLORS.border}` }}
+                      aria-label={`Annuler la modification du stock de ${b.label}`}
+                      title="Annuler (Échap)"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="gaz-heading gaz-num gaz-card-stock mb-3" style={{ color: accent }}>
+                      {stock[b.key] || 0}
+                      <span style={{ fontFamily: "Inter", fontSize: "0.7rem", color: COLORS.muted, marginLeft: 6 }}>
+                        en stock
+                      </span>
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        inputMode="numeric"
+                        placeholder="Quantité"
+                        className="gaz-input"
+                        style={{ padding: "7px 10px", fontSize: "0.85rem", width: "100%", minWidth: 0 }}
+                        value={inputs[b.key] || ""}
+                        onChange={(e) => setInputs((prev) => ({ ...prev, [b.key]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleAdd(b.key); }}
+                      />
+                      <button
+                        onClick={() => handleAdd(b.key)}
+                        className="gaz-btn flex items-center justify-center flex-shrink-0"
+                        style={{ background: accent, color: "#14171C", borderRadius: 10, width: 36, height: 36 }}
+                        aria-label={`Ajouter des bouteilles ${b.label}`}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
